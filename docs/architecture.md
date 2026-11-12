@@ -28,22 +28,22 @@ OctoFit Tracker is a three-tier application for a school fitness program. The st
 
 ## Implementation decisions
 
-Record your plan here before editing code.
+Keep presentation, application logic, and persistence in their existing tiers. The frontend calls the Express API through the shared client and does not access MongoDB directly. The API owns validation, business rules, and response shapes; Mongoose models own persisted-field constraints and defaults. Keep the exercise unauthenticated.
 
-- Presentation tier decision:
-- Logic tier decision:
-- Data tier decision:
-- Activity tracking approach:
-- Team management approach:
-- Leaderboard approach:
-- Workout suggestions approach:
+- Presentation tier decision: Use React routes and the shared API client for each capability. Render explicit loading, empty, and accessible error states, and keep API response handling out of presentation-only components where practical.
+- Logic tier decision: Implement the `/api/*` contract in Express routes/services. Validate request shape and referenced IDs before persistence, return deliberate 4xx responses for invalid or unknown resources, and avoid leaking Mongoose cast errors as 500 responses.
+- Data tier decision: Define required fields, references, and defaults in Mongoose models. Keep seed data representative and idempotent; preserve unrelated records when seeding.
+- Activity tracking approach: Accept `userId`, `teamId`, `type`, and positive `minutes`; verify both IDs are valid and refer to existing records. Persist the corresponding `user` and `team` references, calculate positive points in the logic tier, and set `occurredAt` when creating the activity.
+- Team management approach: Require a name, retain the submitted name and mascot, and default members to an empty array. Validate member references and expose members consistently in create/list responses.
+- Leaderboard approach: Sum persisted activity points per team, sort descending by total, and assign ranks starting at 1. Return the documented `teamName`, `totalPoints`, and `rank` fields.
+- Workout suggestions approach: Find the user by email, use recent activity to choose a matching workout focus when available (falling back to the user's fitness goal), and include a concise reason. Return a deliberate 4xx for an unknown email.
 
 ## Test plan
 
-Record the commands you run and what each failure means.
+- Data tier: `npm run test:data --prefix octofit-tracker/backend` checks model constraints/defaults and repeatable, non-destructive seeding. Failures indicate a persistence contract or seed behavior regression.
+- API logic: `npm run test:api --prefix octofit-tracker/backend` checks request validation, activity/team persistence, leaderboard totals/ranks, and user-specific workout suggestions. Failures indicate an endpoint, validation, or business-rule mismatch.
+- Presentation: `npm test --prefix octofit-tracker/frontend` checks API-backed rendering and the loading, empty, and accessible error states for each route. Failures indicate a frontend integration or user-visible state regression.
+- Backend build: `npm run build --prefix octofit-tracker/backend` type-checks the backend with TypeScript. Failures indicate backend type or compile errors.
+- Frontend build: `npm run build --prefix octofit-tracker/frontend` type-checks the frontend and creates the Vite production build. Failures indicate frontend type, compile, or bundling errors.
 
-- Data-tier command: `npm run test:data --prefix octofit-tracker/backend`
-- API command: `npm run test:api --prefix octofit-tracker/backend`
-- Frontend command: `npm test --prefix octofit-tracker/frontend`
-- Backend build command: `npm run build --prefix octofit-tracker/backend`
-- Frontend build command: `npm run build --prefix octofit-tracker/frontend`
+Baseline observed on 2026-11-12: the data suite had 4 failures and 1 pass (the seed test passed); the API suite had 4 failures; and the frontend suite had 15 failures. These are starter-contract failures to address in data, logic, then presentation order—not expected passing results.
